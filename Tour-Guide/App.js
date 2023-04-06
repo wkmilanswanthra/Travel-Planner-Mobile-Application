@@ -8,6 +8,7 @@ import Register from './Screens/Register'
 import Suggestions from './Screens/Suggestions'
 import Accommodation from './Screens/Accommodation'
 import Route from "./Screens/Route";
+import Rate from "./Screens/Rate";
 import {NavigationContainer} from '@react-navigation/native';
 import {createNativeStackNavigator} from '@react-navigation/native-stack';
 import LocalizationProvider from "./Constants/i18n";
@@ -28,7 +29,8 @@ export default function App() {
                         <Stack.Screen name="Register" component={Register}/>
                         <Stack.Screen name="Suggestions" component={Suggestions} options={{title: 'Available plans'}}/>
                         <Stack.Screen name="Accommodation" component={Accommodation}/>
-                        <Stack.Screen name="Route" component={Route}/>
+                        <Stack.Screen name="Route" component={Route} options={{title: 'Map'}}/>
+                        <Stack.Screen name="Rate" component={Rate} options={{title: 'Rate your visited locations'}}/>
                     </Stack.Navigator>
                 </NavigationContainer>
             </LocalizationProvider>

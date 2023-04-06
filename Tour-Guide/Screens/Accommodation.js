@@ -1,53 +1,48 @@
 import React, {useContext, useState} from 'react';
 import {View, Text, Image, ScrollView, StyleSheet, TouchableOpacity, Modal, Alert, Pressable} from 'react-native';
 import {LocalizationContext} from "../Constants/i18n";
-
-const DATA = [
-    {id: 1, category: 'dinner', title: 'Item 1', description: 'This is item 1', image: 'https://picsum.photos/200/300'},
-    {id: 2, category: 'dinner', title: 'Item 2', description: 'This is item 2', image: 'https://picsum.photos/200/300'},
-    {id: 3, category: 'dinner', title: 'Item 3', description: 'This is item 3', image: 'https://picsum.photos/200/300'},
-    {id: 4, category: 'dinner', title: 'Item 4', description: 'This is item 4', image: 'https://picsum.photos/200/300'},
-    {id: 5, category: 'dinner', title: 'Item 5', description: 'This is item 5', image: 'https://picsum.photos/200/300'},
-    {id: 6, category: 'dinner', title: 'Item 6', description: 'This is item 6', image: 'https://picsum.photos/200/300'},
-    {id: 7, category: 'dinner', title: 'Item 7', description: 'This is item 7', image: 'https://picsum.photos/200/300'},
-    {id: 8, category: 'dinner', title: 'Item 8', description: 'This is item 8', image: 'https://picsum.photos/200/300'},
-    {id: 9, category: 'dinner', title: 'Item 9', description: 'This is item 9', image: 'https://picsum.photos/200/300'},
-    {
-        id: 10,
-        category: 'dinner',
-        title: 'Item 10',
-        description: 'This is item 10',
-        image: 'https://picsum.photos/200/300'
-    },
-];
+import {auth, store} from "../Config/firebaseConfig";
+import {getDocs, collection} from 'firebase/firestore'
+import {useEffect} from "react";
 
 
-const Accommodation = ({props, title, setData, data}) => {
-    const {DATA, navigation, setModalVisible, setModalTitle, setModalDescription, setModalImg, setChoice} = props
+const Accommodation = ({props, title, setData, data, selection}) => {
+    const {navigation, setModalVisible, setModalTitle, setModalDescription, setModalImg} = props
 
     function handlePress(item) {
-        setModalTitle(item.title)
-        setModalDescription(item.description)
-        setModalImg(item.image)
+        setModalTitle(item.data.name)
+        let description='';
+        description += item.data.address;
+        if (item.data.rating)
+            description+= '\nRating: '+item.data.rating;
+        if (item.data.star)
+            description+= '\nStar rating: '+item.data.star+ ' stars';
+        if (item.data.web)
+            description+= '\nWebsite: '+item.data.web;
+        description+='\n Phone: '+item.data.phone
+        setModalDescription(description)
+        setModalImg(item.data.img)
         setModalVisible(true)
     }
 
     function handleLongPress(item) {
-        (data !== item) ? setData(item) : setData('')
+        console.log(item);
+        (selection !== item) ? setData(item) : setData(undefined);
+        console.log(selection);
     }
 
     return (
         <View style={styles.accoContainer}>
             {(title !== "") && <Text style={styles.title}>{title}</Text>}
             <ScrollView horizontal={true}>
-                {DATA.map((item, index) => {
+                {data && data.map((item, index) => {
                     return (
-                        <TouchableOpacity style={[styles.item, (data === item && styles.selectedItem)]} key={index}
+                        <TouchableOpacity style={[styles.item, (selection === item && styles.selectedItem)]} key={index}
                                           onPress={() => handlePress(item)}
                                           onLongPress={() => handleLongPress(item)} activeOpacity={0.6}>
-                            <Text style={styles.itemTitle} numberOfLines={1}>{item.title}</Text>
-                            <Image source={{uri: item.image}} style={styles.image}/>
-                            <Text style={styles.itemDescription} numberOfLines={1}>{item.description}</Text>
+                            <Text style={styles.itemTitle} numberOfLines={1}>{item.data.name}</Text>
+                            <Image source={{uri: item.data.img}} style={styles.image}/>
+                            <Text style={styles.itemDescription} numberOfLines={3}>{item.data.description}</Text>
                         </TouchableOpacity>
                     )
                 })}
@@ -62,29 +57,65 @@ const AccommodationScreen = ({navigation, route}) => {
     const [modalTitle, setModalTitle] = useState('');
     const [modalDescription, setModalDescription] = useState('');
     const [modalImg, setModalImg] = useState('');
-    const [choice, setChoice] = useState({});
-    const [breakfast, setBreakfast] = useState('');
-    const [lunch, setLunch] = useState('');
-    const [dinner, setDinner] = useState('');
-    const [hotel, setHotel] = useState('');
+    const [hotelList, setHotelList] = useState('');
+    const [restaurantList, setRestaurantList] = useState('');
+    const [breakfast, setBreakfast] = useState(undefined);
+    const [lunch, setLunch] = useState(undefined);
+    const [dinner, setDinner] = useState(undefined);
+    const [hotel, setHotel] = useState(undefined);
     const plan = route.params.plan
+    const locations = route.params.locations
     const {i18n} = useContext(LocalizationContext)
 
-    console.log(plan)
+    async function getHotels() {
+        const snapshot = await getDocs(collection(store, 'hotels'));
+        let hotels = [];
+        snapshot.forEach(doc=>{
+            hotels.push({id: doc.id, data: doc.data()});
+        })
+        setHotelList(hotels);
+    }
+    async function getRestaurants() {
+        const snapshot = await getDocs(collection(store, 'restaurants'));
+        let restaurants = [];
+        snapshot.forEach(doc=>{
+            restaurants.push({id: doc.id, data: doc.data()});
+        })
+        setRestaurantList(restaurants);
+    }
+
+    useEffect(()=>{
+        if (auth.currentUser) {
+            getHotels();
+            getRestaurants();
+        }
+    },[])
+
+    function getRandomSet(arr, num) {
+        const shuffled = [...arr].sort(() => 0.5 - Math.random());
+        return shuffled.slice(0, num);
+    }
 
     const props = {
-        DATA,
         navigation,
         setModalVisible,
         setModalTitle,
         setModalDescription,
         setModalImg,
-        choice,
-        setChoice
     }
 
     function handlePress() {
-        navigation.navigate('Route')
+        if (!breakfast || !lunch || !dinner || !hotel){
+            alert('Select one option for each category')
+            return
+        }
+        const choi = {
+            breakfast: breakfast,
+            lunch: lunch,
+            dinner: dinner,
+            hotel: hotel
+        }
+        navigation.navigate('Route', {accommodation: choi, plan: plan, locations: locations})
     }
 
     return (
@@ -92,11 +123,11 @@ const AccommodationScreen = ({navigation, route}) => {
             <Text style={[styles.title, {marginTop: 20, marginLeft: 10}]}>{i18n.t('AccommodationTitle')}</Text>
             <ScrollView style={styles.container}>
                 <Text style={styles.categoryTitle}>{i18n.t('AccommodationRestaurants')}</Text>
-                <Accommodation title={i18n.t('AccommodationBreakfast')} props={props} setData={setBreakfast} data={breakfast}/>
-                <Accommodation title={i18n.t('AccommodationLunch')} props={props} setData={setLunch} data={lunch}/>
-                <Accommodation title={i18n.t('AccommodationDinner')} props={props} setData={setDinner} data={dinner}/>
+                <Accommodation title={i18n.t('AccommodationBreakfast')} props={props} selection={breakfast} setData={setBreakfast} data={restaurantList}/>
+                <Accommodation title={i18n.t('AccommodationLunch')} props={props} selection={lunch} setData={setLunch} data={restaurantList}/>
+                <Accommodation title={i18n.t('AccommodationDinner')} props={props} selection={dinner} setData={setDinner} data={restaurantList}/>
                 <Text style={styles.categoryTitle}>{i18n.t('Hotels')}</Text>
-                <Accommodation title="" props={props} setData={setHotel} data={hotel}/>
+                <Accommodation title="" props={props} selection={hotel} setData={setHotel} data={hotelList}/>
                 <View style={{
                     width: '100%',
                     flex: 1,
@@ -215,6 +246,7 @@ const styles = StyleSheet.create({
     modalText: {
         marginBottom: 15,
         textAlign: 'center',
+        fontWeight: "600"
     }, modalTitle: {
         marginBottom: 15,
         textAlign: 'left',

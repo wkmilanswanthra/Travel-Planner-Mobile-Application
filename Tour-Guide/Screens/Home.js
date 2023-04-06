@@ -1,14 +1,34 @@
 import React, {useRef, useState} from 'react';
 import {View, Text, StyleSheet, TouchableOpacity, Image} from 'react-native';
 import {LocalizationContext} from '../Constants/i18n';
-import {useContext} from "react";
+import {useContext, useEffect} from "react";
 import {Picker} from "@react-native-picker/picker";
+import {auth, store} from "../Config/firebaseConfig";
+import {collection, setDoc, doc, getDoc} from "firebase/firestore";
 
 
 const ScreenWithLanguageSelector = ({navigation}) => {
+    console.log('Homepage user: ', auth.currentUser?.email)
+
     const [language, setLanguage] = useState('');
 
     const {i18n, setLocal} = useContext(LocalizationContext);
+
+    useEffect( () => {
+        async function func() {
+            if (auth.currentUser?.email) {
+                const docRef = doc(store, 'users', auth.currentUser?.uid, 'routes', auth.currentUser?.uid );
+                await getDoc(docRef).then(r => {
+                    if (docRef) {
+                        console.log('r: ', r.data().route)
+                        navigation.navigate('Route', {accommodation: r.data().route.accommodation, plan: r.data().route.plan, locations: r.data().route.locations})
+                    }
+                })
+            }
+        }
+
+        func()
+    },[])
 
     function changeLanguage(lang) {
         i18n.locale = lang

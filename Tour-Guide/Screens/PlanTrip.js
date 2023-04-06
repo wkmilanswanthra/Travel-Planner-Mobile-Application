@@ -4,10 +4,15 @@ import IonIcon from 'react-native-vector-icons/Ionicons';
 import DateTimePicker from "@react-native-community/datetimepicker";
 import {LocalizationContext} from '../Constants/i18n';
 import {Picker} from '@react-native-picker/picker';
+import {auth} from "../Config/firebaseConfig";
+import {onAuthStateChanged} from 'firebase/auth'
+import {useIsFocused} from "@react-navigation/native";
 
 let datePickerShown = false;
 
 const PlanTripScreen = ({navigation}) => {
+    console.log('Plan Trip user: ', auth.currentUser?.email)
+
 
     const options = ["Galle", "Matara", "Colombo", "Kandy", "Nuwara Eliya", "Matale", "Jafna"];
     const [destination, setDestination] = useState('');
@@ -24,7 +29,7 @@ const PlanTripScreen = ({navigation}) => {
     const {i18n} = useContext(LocalizationContext);
 
     const handleNext = () => {
-
+        console.log(auth.currentUser?.uid)
         if (!destination.trim()) {
             Alert.alert(i18n.t('IndexAlertDest'));
             return;
@@ -42,21 +47,23 @@ const PlanTripScreen = ({navigation}) => {
             return;
         }
 
-        // handle form submission
-        console.log('Submitted form:', {
-            destination, numPeople, startDate, endDate, transportation, planningTime,
-        });
+
         const tripPlan = {
             destination: destination,
             numPeople: numPeople,
-            startDate: startDate,
-            endDate: endDate,
+            startDate: startDate.toDateString(),
+            endDate: endDate.toDateString(),
             transportation: transportation,
             planningTime: planningTime
         }
 
         // navigate to next screen
-        navigation.navigate('AuthOptions', {tripPlan: tripPlan});
+        if (auth.currentUser) {
+            navigation.navigate('Suggestions', {tripPlan: tripPlan});
+        }else {
+            navigation.navigate('AuthOptions', {tripPlan: tripPlan});
+
+        }
     };
 
 
@@ -123,6 +130,7 @@ const PlanTripScreen = ({navigation}) => {
     function goToAuth() {
         navigation.navigate('AuthOptions');
     }
+
 
     return (<KeyboardAvoidingView style={styles.container}>
         <View style={styles.header}>

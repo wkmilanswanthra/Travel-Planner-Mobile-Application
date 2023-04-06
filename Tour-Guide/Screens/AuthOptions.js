@@ -1,17 +1,22 @@
-import React, { useContext } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import React, {useContext, useEffect, useState} from 'react';
+import {View, Text, TouchableOpacity, StyleSheet} from 'react-native';
 import {LocalizationContext} from "../Constants/i18n";
+import {signOut} from 'firebase/auth'
+import {auth} from "../Config/firebaseConfig";
+import {onAuthStateChanged} from 'firebase/auth'
 
-const AuthOptions = ({ navigation, route}) => {
+const AuthOptions = ({navigation, route}) => {
 
-    const { i18n, local, setLocal } = useContext(LocalizationContext);
+    console.log('AuthOptions user: ', auth.currentUser?.email)
+
+    const {i18n, local, setLocal} = useContext(LocalizationContext);
 
 
     const handleLogin = () => {
         if (route.params)
-            navigation.navigate('Login', {tripPlan: route.params.tripPlan});
+            navigation.replace('Login', {tripPlan: route.params.tripPlan});
         else
-            navigation.navigate('Login');
+            navigation.replace('Login');
 
     };
 
@@ -21,19 +26,23 @@ const AuthOptions = ({ navigation, route}) => {
 
     const handleLogout = () => {
         // handle logout logic
+        signOut(auth).then(u => {
+            navigation.replace('Home')
+        })
     };
 
     return (
         <View style={styles.container}>
-            <TouchableOpacity style={styles.button} onPress={handleLogin}>
+            {!auth.currentUser && <TouchableOpacity style={styles.button} onPress={handleLogin}>
                 <Text style={styles.buttonText}>{i18n.t('AuthLogin')}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.button} onPress={handleSignUp}>
+            </TouchableOpacity>}
+            {!auth.currentUser && <TouchableOpacity style={styles.button} onPress={handleSignUp}>
                 <Text style={styles.buttonText}>{i18n.t('AuthSignUp')}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.button} onPress={handleLogout}>
+            </TouchableOpacity>}
+            {auth.currentUser && <Text> Current User  : {auth.currentUser?.email}</Text>}
+            {auth.currentUser && <TouchableOpacity style={styles.button} onPress={handleLogout}>
                 <Text style={styles.buttonText}>{i18n.t('AuthLogOut')}</Text>
-            </TouchableOpacity>
+            </TouchableOpacity>}
         </View>
     );
 };

@@ -1,35 +1,26 @@
-import React, {useContext, useState} from 'react';
+import React, {useContext, useEffect, useState} from 'react';
 import {View, Text, Image, ScrollView, StyleSheet, TouchableOpacity, Alert, Pressable, Modal} from 'react-native';
 import {LocalizationContext} from "../Constants/i18n";
+import {auth, store} from "../Config/firebaseConfig";
+import {collection, getDocs} from 'firebase/firestore'
 
-const DATA = [
-    {id: 1, title: 'Item 1', description: 'This is item 1', image: 'https://picsum.photos/200/300'},
-    {id: 2, title: 'Item 2', description: 'This is item 2', image: 'https://picsum.photos/200/300'},
-    {id: 3, title: 'Item 3', description: 'This is item 3', image: 'https://picsum.photos/200/300'},
-    {id: 4, title: 'Item 4', description: 'This is item 4', image: 'https://picsum.photos/200/300'},
-    {id: 5, title: 'Item 5', description: 'This is item 5', image: 'https://picsum.photos/200/300'},
-    {id: 6, title: 'Item 6', description: 'This is item 6', image: 'https://picsum.photos/200/300'},
-    {id: 7, title: 'Item 7', description: 'This is item 7', image: 'https://picsum.photos/200/300'},
-    {id: 8, title: 'Item 8', description: 'This is item 8', image: 'https://picsum.photos/200/300'},
-    {id: 9, title: 'Item 9', description: 'This is item 9', image: 'https://picsum.photos/200/300'},
-    {id: 10, title: 'Item 10', description: 'This is item 10', image: 'https://picsum.photos/200/300'},
-];
-
-const SUGGESTIONS = [
-    {title: 'Plan 1', data: DATA},
-    {title: 'Plan 2', data: DATA},
-    {title: 'Plan 3', data: DATA},
-    {title: 'Plan 4', data: DATA},
-]
 
 const Suggestion = ({title, data, navigation, item, props}) => {
+
 
     const {setPlan, setModalTitle, setModalDescription, setModalVisible} = props
 
     function handlePress(item) {
         setModalTitle(item.title)
-        setModalDescription(item.title)
-        setPlan(item)
+        let description="Locations visited, \n";
+        let totTime = 0;
+        for (const data of item.data){
+            description+=data.data.name+' - '+data.data.time+' hours'+'\n'
+            totTime+=data.data.time;
+        }
+        description+='\n\n'+'Total time: '+totTime+' hours'
+        setModalDescription(description)
+        setPlan(item.data)
         setModalVisible(true)
     }
 
@@ -37,11 +28,11 @@ const Suggestion = ({title, data, navigation, item, props}) => {
         <TouchableOpacity onPress={() => handlePress(item)} style={styles.planContainer} activeOpacity={1}>
             <Text style={styles.title}>{title}</Text>
             <ScrollView horizontal={true}>
-                {data.map(item => (
-                    <View style={styles.item} key={item.id}>
-                        <Text style={styles.itemTitle}>{item.title}</Text>
-                        <Image source={{uri: item.image}} style={styles.image}/>
-                        <Text style={styles.itemDescription}>{item.description}</Text>
+                {data.map((item, index) => (
+                    <View style={styles.item} key={index}>
+                        <Text style={styles.itemTitle} numberOfLines={1}>{item.data.name}</Text>
+                        <Image source={{uri: item.data.img}} style={styles.image}/>
+                        <Text style={styles.itemDescription} numberOfLines={3}>{item.data.description}</Text>
                     </View>
                 ))}
             </ScrollView>
@@ -55,8 +46,47 @@ const SuggestionsScreen = ({navigation, route}) => {
     const [modalTitle, setModalTitle] = useState('');
     const [modalDescription, setModalDescription] = useState('');
     const [plan, setPlan] = useState({});
-    const tripPlan = route.params.tripPlan;
+    const tripPlan = route.params?.tripPlan;
     const {i18n} = useContext(LocalizationContext)
+    const [locations, setLocations] = useState([]);
+    const [suggestions, setSuggestions] = useState([]);
+    let SUGGESTIONS = [];
+
+    async function getLocations() {
+        const querySnapshot = await getDocs(collection(store, "locations"));
+        const documents = [];
+        querySnapshot.forEach((doc) => {
+            documents.push({id: doc.id, data: doc.data()})
+        });
+        setLocations(documents)
+        return querySnapshot;
+    }
+
+    useEffect(()=>{
+        if (auth.currentUser) {
+            getLocations().then(()=>{
+
+            })
+        }else {
+
+        }
+
+    },[])
+
+    useEffect(()=>{
+        SUGGESTIONS = [
+            {title: 'Package 1', data: getRandomSet(locations, 5)},
+            {title: 'Package 2', data: getRandomSet(locations, 5)},
+            {title: 'Package 3', data: getRandomSet(locations, 5)},
+            {title: 'Package 4', data: getRandomSet(locations, 5)},
+        ]
+        setSuggestions(SUGGESTIONS)
+    },[locations])
+
+    function getRandomSet(arr, num) {
+        const shuffled = [...arr].sort(() => 0.5 - Math.random());
+        return shuffled.slice(0, num);
+    }
 
     const props = {
         setPlan, setModalTitle, setModalDescription, setModalVisible
@@ -66,7 +96,7 @@ const SuggestionsScreen = ({navigation, route}) => {
         <>
             <Text style={[styles.title, {marginTop: 20, marginLeft: 10}]}>{i18n.t('SuggestionsSelectAPlan')}</Text>
             <ScrollView style={styles.container}>
-                {SUGGESTIONS.map((item, index) => {
+                {suggestions.map((item, index) => {
                     return (
                         <Suggestion title={item.title} data={item.data} navigation={navigation} key={index}
                                     item={item} props={props}/>
@@ -79,7 +109,7 @@ const SuggestionsScreen = ({navigation, route}) => {
                 }}>
                     <View style={styles.centeredView}>
                         <View style={styles.modalView}>
-                            <Text style={styles.modalTitle}>{modalTitle}</Text>
+                            <Text style={styles.modalTitle} >{modalTitle}</Text>
                             <Text style={styles.modalText}>{modalDescription}</Text>
                             {/*<Image source={{uri: modalImg}} style={styles.image}/>*/}
                             <View style={{flexDirection: 'row'}}>
@@ -94,7 +124,7 @@ const SuggestionsScreen = ({navigation, route}) => {
                                     style={[styles.button, styles.buttonClose]}
                                     onPress={() => {
                                         setModalVisible(!modalVisible);
-                                        navigation.navigate('Accommodation', {plan: plan})
+                                        navigation.navigate('Accommodation', {locations: plan, plan: tripPlan})
                                     }}>
                                     <Text style={styles.textStyle}>{i18n.t('SuggestionsModalOK')}</Text>
                                 </Pressable>
@@ -157,7 +187,7 @@ const styles = StyleSheet.create({
         margin: 20,
         backgroundColor: 'white',
         borderRadius: 20,
-        padding: 35,
+        padding: 25,
         alignItems: 'center',
         shadowColor: '#000',
         shadowOffset: {
@@ -187,7 +217,8 @@ const styles = StyleSheet.create({
     },
     modalText: {
         marginBottom: 15,
-        textAlign: 'center',
+        textAlign: 'left',
+        fontWeight: "600"
     }, modalTitle: {
         marginBottom: 15,
         textAlign: 'left',

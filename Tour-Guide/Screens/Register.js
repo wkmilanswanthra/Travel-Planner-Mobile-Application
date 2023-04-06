@@ -1,13 +1,9 @@
 import React, {useContext, useState} from 'react';
-import {auth} from '../Config/firebaseConfig'
-import {
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
-} from 'react-native';
+import {ActivityIndicator, StyleSheet, Text, TextInput, TouchableOpacity, View,} from 'react-native';
 import {LocalizationContext} from '../Constants/i18n';
+import {auth, store} from '../Config/firebaseConfig'
+import {createUserWithEmailAndPassword} from 'firebase/auth'
+import { collection, addDoc, setDoc , doc} from "firebase/firestore";
 
 const SignUpScreen = ({navigation}) => {
     const [fullName, setFullName] = useState('');
@@ -16,33 +12,40 @@ const SignUpScreen = ({navigation}) => {
     const [contactNo, setContactNo] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
 
     const {i18n} = useContext(LocalizationContext)
 
     const handleSignUp = () => {
+        setIsLoading(true)
         // Validation logic
         if (!fullName || !email || !passport || !contactNo || !password) {
             setError(i18n.t('RegisterErrorAllFields'));
+            setIsLoading(false)
             return;
         }
 
         if (!validateEmail(email)) {
             setError(i18n.t('RegisterErrorValidEmail'));
+            setIsLoading(false)
             return;
         }
 
         if (!validatePassport(passport)) {
             setError(i18n.t('RegisterErrorValidNIC'));
+            setIsLoading(false)
             return;
         }
 
         if (!validateContactNo(contactNo)) {
             setError(i18n.t('RegisterErrorContact'));
+            setIsLoading(false)
             return;
         }
 
         if (!validatePassword(password)) {
             setError(i18n.t('RegisterErrorValidPassword'));
+            setIsLoading(false)
             return;
         }
         setError('')
@@ -56,12 +59,30 @@ const SignUpScreen = ({navigation}) => {
             password,
         });
 
-        auth.createUserWithEmailAndPassword(email, password)
-            .then(user=>{
-                console.log('Registered user: ', user)
+        createUserWithEmailAndPassword(auth, email, password)
+            .then(async user => {
+                console.log('Registered user: ', user.user.uid)
+                try {
+                    await setDoc(doc(store, "users", user.user.uid), {
+                        id: user.user.uid,
+                        name: fullName,
+                        email: email,
+                        passport: passport,
+                        contactNo: contactNo
+                    });
+
+                    navigation.navigate('Login')
+                    setIsLoading(false)
+                } catch (e) {
+                    if (e.message.toString().includes('email-already-in-use')) {
+                        alert('That email address is already in use!');
+                    }
+                    setIsLoading(false)
+                }
             })
             .catch(error=>{
                 console.error(error)
+                setIsLoading(false)
             })
     };
 
@@ -80,7 +101,8 @@ const SignUpScreen = ({navigation}) => {
     };
 
     const validatePassword = (password) => {
-        return password;
+        return password.length >= 6;
+
     };
 
     function goToLogin() {
@@ -127,7 +149,8 @@ const SignUpScreen = ({navigation}) => {
                 secureTextEntry={true}
             />
             <TouchableOpacity style={styles.button} onPress={handleSignUp}>
-                <Text style={styles.buttonText}>{i18n.t('RegisterSignUpBtn')}</Text>
+                {isLoading && <ActivityIndicator size="small" color="white" />}
+                {!isLoading &&<Text style={styles.buttonText}>{i18n.t('RegisterSignUpBtn')}</Text>}
             </TouchableOpacity>
             <TouchableOpacity style={{marginTop: 20}} onPress={goToLogin}>
                 <Text>{i18n.t('RegisterBackToLogin')}</Text>

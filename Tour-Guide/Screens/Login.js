@@ -1,7 +1,10 @@
 import React, {useContext, useState} from "react";
-import {StyleSheet, View, TextInput, TouchableOpacity, Text} from 'react-native';
+import {StyleSheet, View, TextInput, TouchableOpacity, Text, ActivityIndicator} from 'react-native';
 import {Icon} from 'react-native-elements';
 import {LocalizationContext} from "../Constants/i18n";
+import {auth, store} from "../Config/firebaseConfig";
+import {signInWithEmailAndPassword, setPersistence, indexedDBLocalPersistence} from 'firebase/auth'
+import {doc, getDoc} from "firebase/firestore";
 
 
 export default function Login({navigation, route}) {
@@ -12,13 +15,49 @@ export default function Login({navigation, route}) {
     const [password, setPassword] = useState('');
     const [emailError, setEmailError] = useState('');
     const [passwordError, setPasswordError] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
 
     const handleLogin = () => {
-        if ((validateEmail() & validatePassword()) && route.params) {
-            console.log('login: ', email, ' ', password)
-            navigation.replace('Suggestions', {tripPlan: route.params.tripPlan});
-        } else if ((validateEmail() & validatePassword())) {
-            navigation.replace('PlanTrip')
+        setIsLoading(true);
+        if (validateEmail() & validatePassword()) {
+            return signInWithEmailAndPassword(auth, email, password).then(async user => {
+                if (auth.currentUser?.email) {
+                    const docRef = doc(store, 'users', auth.currentUser?.uid, 'routes', auth.currentUser?.uid);
+                    await getDoc(docRef).then(r => {
+                        if (r.data().route) {
+                            navigation.replace('Route', {
+                                accommodation: r.data().route.accommodation,
+                                plan: r.data().route.plan,
+                                locations: r.data().route.locations
+                            })
+                        }
+                        setIsLoading(false)
+
+                    }).catch(e => {
+                        console.error(e.message)
+                        if (route.params) {
+                            navigation.replace('Suggestions', {tripPlan: route.params.tripPlan});
+                            setIsLoading(false)
+                        } else {
+                            navigation.replace('PlanTrip')
+                            setIsLoading(false)
+                        }
+                    })
+                }
+
+            }).catch(e => {
+                console.error(e.message)
+                if (e.message.toString().includes('user-not-found'))
+                    alert('Invalid credentials')
+                else
+                    alert('An error occurred')
+                setIsLoading(false)
+            }).finally(() => {
+                setIsLoading(false)
+            })
+
+        }else{
+            setIsLoading(false)
         }
     };
 
@@ -79,7 +118,8 @@ export default function Login({navigation, route}) {
         </View>
         <Text style={styles.errorText}>{passwordError}</Text>
         <TouchableOpacity style={styles.button} onPress={handleLogin}>
-            <Text style={styles.buttonText}>{i18n.t('LoginBtn')}</Text>
+            {isLoading && <ActivityIndicator size="small" color="white" />}
+            {!isLoading && <Text style={styles.buttonText}>{i18n.t('LoginBtn')}</Text>}
         </TouchableOpacity>
         <TouchableOpacity style={{marginTop: 20}} onPress={goToRegister}>
             <Text>{i18n.t('LoginRegister')}</Text>
